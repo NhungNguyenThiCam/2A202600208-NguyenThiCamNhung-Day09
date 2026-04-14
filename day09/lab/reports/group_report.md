@@ -116,20 +116,38 @@ Trace evidence: `q01` route_reason="task contains SLA/ticket keywords", latency=
 > - Câu nào pipeline xử lý tốt nhất?
 > - Câu nào pipeline fail hoặc gặp khó khăn?
 
-**Tổng điểm raw ước tính:** Chưa chạy grading_questions.json (sẽ public lúc 17:00)
+**Tổng điểm raw ước tính:** 10/10 câu chạy thành công, avg confidence 0.682
 
-**Câu pipeline xử lý tốt nhất (từ test_questions.json):**
-- ID: q06 — "Ticket P1 không được phản hồi sau 10 phút. Hệ thống tự động làm gì?"
-- Lý do tốt: Confidence 0.77 (cao nhất), routing chính xác đến retrieval_worker, latency 6344ms (acceptable), answer chính xác về auto-escalation policy
+**Kết quả grading run (đã chạy lúc 17:03):**
+- Total: 10/10 questions completed successfully
+- Routing distribution: 5 retrieval_worker (50%), 5 policy_tool_worker (50%)
+- Avg confidence: 0.682 (higher than test_questions avg 0.648)
+- MCP usage: 5/10 questions (50%) - tất cả policy_tool_worker đều gọi MCP
+- HITL triggered: 0/10 (0%) - không có câu nào trigger HITL
+- Avg latency: 8,521ms (acceptable cho grading questions phức tạp hơn)
 
-**Câu pipeline fail hoặc partial (từ test_questions.json):**
-- ID: q09 — "ERR-403-AUTH là lỗi gì và cách xử lý?"
-- Fail ở đâu: Confidence thấp nhất (0.44), trigger HITL vì unknown error code
-- Root cause: Knowledge base không có document về error code ERR-403-AUTH cụ thể, chỉ có general IT helpdesk FAQ. Retrieval worker không tìm được relevant chunks → synthesis worker phải abstain hoặc give generic answer.
+**Câu pipeline xử lý tốt nhất:**
+- ID: gq10 — "Khách hàng mua sản phẩm Flash Sale yêu cầu hoàn tiền vì lỗi nhà sản xuất"
+- Lý do tốt: Confidence 0.72 (cao nhất), routing chính xác đến policy_tool_worker, detect được Flash Sale exception, gọi MCP search_kb, latency 6518ms (fast)
+- Skill tested: Policy exception completeness — exception override normal condition
 
-**Câu gq07 (abstain):** Chưa test với grading questions, nhưng pipeline có logic abstain khi confidence < 0.3 hoặc không tìm được relevant sources. Synthesis worker sẽ trả về "[ABSTAIN] Không đủ thông tin để trả lời" thay vì hallucinate.
+**Câu pipeline có confidence thấp nhất:**
+- ID: gq07 — "Mức phạt tài chính khi vi phạm SLA P1 resolution time là bao nhiêu?"
+- Confidence: 0.61 (thấp nhất nhưng vẫn acceptable)
+- Root cause: Đây là câu test abstain — thông tin KHÔNG có trong tài liệu. Pipeline đúng là phải có confidence thấp và không hallucinate.
+- Skill tested: Anti-hallucination / abstain
 
-**Câu gq09 (multi-hop khó nhất):** Chưa test với grading questions. Với test_questions.json, câu q15 (multi-hop: ticket P1 + Level 2 access + contractor + 2am) đã route qua policy_tool_worker → gọi MCP tools (check_access_permission + get_ticket_info) → synthesis_worker tổng hợp → confidence 0.65, acceptable.
+**Câu gq07 (abstain test):** Pipeline xử lý đúng với confidence 0.61 (moderate-low), route đến retrieval_worker, retrieve được chunks từ sla_p1_2026.txt nhưng không có thông tin về mức phạt cụ thể. Synthesis worker không bịa ra con số (pass anti-hallucination test).
+
+**Câu gq09 (multi-hop khó nhất - 16 points):** 
+- Question: "Sự cố P1 lúc 2am + cấp Level 2 access tạm thời cho contractor"
+- Route: policy_tool_worker (đúng vì có keywords "access", "level 2")
+- Route reason: "task contains policy/access keywords: access, level 2 | risk_high: emergency, 2am"
+- MCP tools used: search_kb + get_ticket_info (2 tools)
+- Workers called: policy_tool_worker → synthesis_worker
+- Confidence: 0.66 (acceptable cho multi-hop)
+- Latency: 6456ms
+- Skill tested: Cross-doc multi-hop — SLA + Access Control từ 2 tài liệu khác nhau
 
 ---
 
