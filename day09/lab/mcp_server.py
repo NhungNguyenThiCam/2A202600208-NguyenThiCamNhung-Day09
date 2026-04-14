@@ -212,18 +212,23 @@ ACCESS_RULES = {
     1: {
         "required_approvers": ["Line Manager"],
         "emergency_can_bypass": False,
-        "note": "Standard user access",
+        "note": "Read Only access",
     },
     2: {
         "required_approvers": ["Line Manager", "IT Admin"],
         "emergency_can_bypass": True,
-        "emergency_bypass_note": "Level 2 có thể cấp tạm thời với approval đồng thời của Line Manager và IT Admin on-call.",
-        "note": "Elevated access",
+        "emergency_bypass_note": "Level 2 có thể cấp tạm thời trong trường hợp khẩn cấp với approval đồng thời của Line Manager và IT Admin on-call. Quyền tạm thời tối đa 24 giờ.",
+        "note": "Standard Access",
     },
     3: {
         "required_approvers": ["Line Manager", "IT Admin", "IT Security"],
         "emergency_can_bypass": False,
-        "note": "Admin access — không có emergency bypass",
+        "note": "Elevated Access — không có emergency bypass",
+    },
+    4: {
+        "required_approvers": ["IT Manager", "CISO"],
+        "emergency_can_bypass": False,
+        "note": "Admin Access — không có emergency bypass, cần training bắt buộc",
     },
 }
 

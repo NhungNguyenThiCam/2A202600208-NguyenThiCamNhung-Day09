@@ -66,8 +66,6 @@ def analyze_policy(task: str, chunks: list) -> dict:
     """
     Phân tích policy dựa trên context chunks.
 
-    TODO Sprint 2: Implement logic này với LLM call hoặc rule-based check.
-
     Cần xử lý các exceptions:
     - Flash Sale → không được hoàn tiền
     - Digital product / license key / subscription → không được hoàn tiền
@@ -92,7 +90,7 @@ def analyze_policy(task: str, chunks: list) -> dict:
         })
 
     # Exception 2: Digital product
-    if any(kw in task_lower for kw in ["license key", "license", "subscription", "kỹ thuật số"]):
+    if any(kw in task_lower for kw in ["license key", "license", "subscription", "kỹ thuật số", "digital"]):
         exceptions_found.append({
             "type": "digital_product_exception",
             "rule": "Sản phẩm kỹ thuật số (license key, subscription) không được hoàn tiền (Điều 3).",
@@ -100,7 +98,7 @@ def analyze_policy(task: str, chunks: list) -> dict:
         })
 
     # Exception 3: Activated product
-    if any(kw in task_lower for kw in ["đã kích hoạt", "đã đăng ký", "đã sử dụng"]):
+    if any(kw in task_lower for kw in ["đã kích hoạt", "đã đăng ký", "đã sử dụng", "activated"]):
         exceptions_found.append({
             "type": "activated_exception",
             "rule": "Sản phẩm đã kích hoạt hoặc đăng ký tài khoản không được hoàn tiền (Điều 3).",
@@ -111,24 +109,26 @@ def analyze_policy(task: str, chunks: list) -> dict:
     policy_applies = len(exceptions_found) == 0
 
     # Determine which policy version applies (temporal scoping)
-    # TODO: Check nếu đơn hàng trước 01/02/2026 → v3 applies (không có docs, nên flag cho synthesis)
     policy_name = "refund_policy_v4"
     policy_version_note = ""
-    if "31/01" in task_lower or "30/01" in task_lower or "trước 01/02" in task_lower:
-        policy_version_note = "Đơn hàng đặt trước 01/02/2026 áp dụng chính sách v3 (không có trong tài liệu hiện tại)."
-
-    # TODO Sprint 2: Gọi LLM để phân tích phức tạp hơn
-    # Ví dụ:
-    # from openai import OpenAI
-    # client = OpenAI()
-    # response = client.chat.completions.create(
-    #     model="gpt-4o-mini",
-    #     messages=[
-    #         {"role": "system", "content": "Bạn là policy analyst. Dựa vào context, xác định policy áp dụng và các exceptions."},
-    #         {"role": "user", "content": f"Task: {task}\n\nContext:\n" + "\n".join([c['text'] for c in chunks])}
-    #     ]
-    # )
-    # analysis = response.choices[0].message.content
+    
+    # Check for dates before 01/02/2026
+    import re
+    date_patterns = [
+        r'(\d{1,2})/(\d{1,2})/2026',  # DD/MM/2026
+        r'ngày (\d{1,2})/(\d{1,2})',   # ngày DD/MM
+    ]
+    
+    for pattern in date_patterns:
+        matches = re.findall(pattern, task_lower)
+        for match in matches:
+            day = int(match[0])
+            month = int(match[1]) if len(match) > 1 else 1
+            # Check if before 01/02/2026
+            if month == 1 or (month == 2 and day == 1):
+                if month == 1 or (month == 2 and day < 1):
+                    policy_version_note = "Đơn hàng đặt trước 01/02/2026 áp dụng chính sách v3 (không có trong tài liệu hiện tại)."
+                    break
 
     sources = list({c.get("source", "unknown") for c in chunks if c})
 
@@ -138,7 +138,7 @@ def analyze_policy(task: str, chunks: list) -> dict:
         "exceptions_found": exceptions_found,
         "source": sources,
         "policy_version_note": policy_version_note,
-        "explanation": "Analyzed via rule-based policy check. TODO: upgrade to LLM-based analysis.",
+        "explanation": "Analyzed via rule-based policy check with exception detection.",
     }
 
 
