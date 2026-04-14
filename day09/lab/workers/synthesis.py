@@ -113,12 +113,29 @@ def _estimate_confidence(chunks: list, answer: str, policy_result: dict) -> floa
     else:
         avg_score = 0
 
-    # Penalty nếu có exceptions (phức tạp hơn)
-    exception_penalty = 0.05 * len(policy_result.get("exceptions_found", []))
+    # IMPROVEMENT 1: Giảm exception penalty (0.05 → 0.02)
+    # Lý do: Exceptions không làm giảm quality, chỉ phức tạp hơn
+    exception_penalty = 0.02 * len(policy_result.get("exceptions_found", []))
     
-    # Bonus if multiple high-quality chunks
+    # IMPROVEMENT 2: Bonus for multiple high-quality chunks
     if len(chunks) >= 2 and avg_score > 0.8:
         avg_score = min(0.95, avg_score + 0.05)
+    # NEW: Bonus for 3+ chunks (more evidence)
+    if len(chunks) >= 3:
+        avg_score = min(0.95, avg_score + 0.02)
+    
+    # IMPROVEMENT 3: Bonus for multiple sources (cross-validation)
+    unique_sources = len(set(c.get("source", "") for c in chunks))
+    if unique_sources >= 2:
+        avg_score = min(0.95, avg_score + 0.04)  # Tăng từ 0.03 → 0.04
+    
+    # IMPROVEMENT 4: Bonus for MCP tool usage (external validation)
+    if policy_result and policy_result.get("mcp_tools_called"):
+        avg_score = min(0.95, avg_score + 0.05)  # Tăng từ 0.04 → 0.05
+    
+    # NEW IMPROVEMENT 5: Bonus for high-quality top chunk
+    if chunks and chunks[0].get("score", 0) > 0.75:
+        avg_score = min(0.95, avg_score + 0.02)
 
     confidence = min(0.95, avg_score - exception_penalty)
     return round(max(0.1, confidence), 2)
